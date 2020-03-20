@@ -1,104 +1,79 @@
-from flask import Flask, jsonify
+from flask import Flask
 from flask_restful import Api
 from flask_jwt_extended import JWTManager
-
+from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
 
 from db import db
+from ma import ma
 from blacklist import BLACKLIST
-from resources.user import UserRegister, UserLogin, User, TokenRefresh, UserLogout
-
+from resources.user import UserRegister, UserLogin, User, UserLogout, Users
+from resources.role import UserRole, UserRoles
+from resources.drug import Drugs, Drug, RegisterDrug,DoctorDrug, DrugName
+from resources.patient import PatientSearchById, Patient, Patients, PatientSearchByNationalId
+from resources.recipe import Recipe, SearchRecipeById, RecipeSpend
+from resources.department import Deprtment, Departments
 
 app = Flask(__name__)
-app.secret_key = "you will never giss password"  # could do app.config['JWT_SECRET_KEY'] if we prefer
+app.secret_key = "you will never gi ss password"
 app.config.from_object("config")
-
+CORS(app)
+db = SQLAlchemy(app)
 
 api = Api(app)
-
-
-@app.before_first_request
-def create_tables():
-    db.create_all()
-
 
 jwt = JWTManager(app)
 
 
-@jwt.user_claims_loader
-def add_claims_to_jwt(
-    identity
-):  # Remember identity is what we define when creating the access token
-    if (
-        identity == 1
-    ):  # instead of hard-coding, we should read from a file or database to get a list of admins instead
-        return {"is_admin": True}
-    return {"is_admin": False}
-
-
-# This method will check if a token is blacklisted, and will be called automatically when blacklist is enabled
 @jwt.token_in_blacklist_loader
 def check_if_token_in_blacklist(decrypted_token):
     return (
-        decrypted_token["jti"] in BLACKLIST
-    )  # Here we blacklist particular JWTs that have been created in the past.
-
-
-# The following callbacks are used for customizing jwt response/error messages.
-# The original ones may not be in a very pretty format (opinionated)
-@jwt.expired_token_loader
-def expired_token_callback():
-    return jsonify({"message": "The token has expired.", "error": "token_expired"}), 401
-
-
-@jwt.invalid_token_loader
-def invalid_token_callback(
-    error
-):  # we have to keep the argument here, since it's passed in by the caller internally
-    return (
-        jsonify(
-            {"message": "Signature verification failed.", "error": "invalid_token"}
-        ),
-        401,
+            decrypted_token["jti"] in BLACKLIST
     )
 
 
-@jwt.unauthorized_loader
-def missing_token_callback(error):
-    return (
-        jsonify(
-            {
-                "description": "Request does not contain an access token.",
-                "error": "authorization_required",
-            }
-        ),
-        401,
-    )
-
-
-@jwt.needs_fresh_token_loader
-def token_not_fresh_callback():
-    return (
-        jsonify(
-            {"description": "The token is not fresh.", "error": "fresh_token_required"}
-        ),
-        401,
-    )
-
-
-@jwt.revoked_token_loader
-def revoked_token_callback():
-    return (
-        jsonify(
-            {"description": "The token has been revoked.", "error": "token_revoked"}
-        ),
-        401,
-    )
+"""  User Api """
 api.add_resource(UserRegister, "/register")
-api.add_resource(User, "/user/<int:user_id>")
 api.add_resource(UserLogin, "/login")
-api.add_resource(TokenRefresh, "/refresh")
 api.add_resource(UserLogout, "/logout")
+
+api.add_resource(Users, "/users")
+api.add_resource(User, "/user/<int:user_id>")
+
+"""        Roles Api             """
+api.add_resource(UserRole, '/role')
+api.add_resource(UserRoles, '/roles')
+
+"""  Drugs """
+api.add_resource(Drugs, '/drugs')
+api.add_resource(RegisterDrug, '/drug')
+api.add_resource(Drug, '/drug/<int:drug_id>')
+api.add_resource(DrugName, '/drug/<string:drug_name>')
+api.add_resource(DoctorDrug, '/doctor_drug')
+
+
+
+
+""" search by id search national_id   add patient add recipe """
+""" Doctor Api """
+api.add_resource(PatientSearchById, '/search')
+api.add_resource(PatientSearchByNationalId, '/search/national_id')
+api.add_resource(Patient, '/patient')
+api.add_resource(Patients, '/patients')
+
+api.add_resource(Deprtment, '/department')
+api.add_resource(Departments, '/departments')
+
+api.add_resource(Recipe, '/recipe')
+api.add_resource(SearchRecipeById, '/recipe/search/<int:id>')
+api.add_resource(RecipeSpend, '/recipe_spend')
+
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db.session.remove()
 
 if __name__ == "__main__":
     db.init_app(app)
+    ma.init_app(app)
     app.run(port=5000, debug=True)
