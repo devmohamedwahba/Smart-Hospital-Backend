@@ -25,7 +25,7 @@ class RecipeDrugAssos(db.Model):
             "unit": self.unit,
             "duration": self.duration,
             "rotes": self.rotes,
-            "drug_details": [DrugModel.find_by_id(self.drug_id).json()]
+            "drug_details": [DrugModel.find_by_id(self.drug_id).json() if self.drug_id else ""]
         }
 
 
@@ -75,6 +75,8 @@ class DrugModel(db.Model):
     def save_to_db(self):
         db.session.add(self)
         db.session.commit()
+
+
 
     def delete_from_db(self):
         db.session.delete(self)

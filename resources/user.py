@@ -9,6 +9,7 @@ from flask_jwt_extended import (
 )
 from models.user import UserModel
 from models.recipe import RecipeSpendAssos
+from models.patient import UserPatientRecipeAssos
 from blacklist import BLACKLIST
 from werkzeug.security import generate_password_hash, check_password_hash
 from db import db
@@ -100,6 +101,11 @@ class User(Resource):
         for delete_user in recipe_of_user:
             delete_user.user_id = None
             db.session.commit()
+        recipe_of_user_patient = UserPatientRecipeAssos.delete_user_recipe(user_id)
+        for delete_user in recipe_of_user_patient:
+            delete_user.user_id = None
+            db.session.commit()
+
         user.delete_from_db()
         return {"message": "User Deleted Successfully"}, 200
 

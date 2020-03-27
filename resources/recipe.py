@@ -20,9 +20,9 @@ class Recipe(Resource):
     parser.add_argument(
         "notes", type=str, required=True, help="this field is required"
     )
-    parser.add_argument(
-        "dept_id", type=int, required=True, help="this field is required"
-    )
+    # parser.add_argument(
+    #     "dept_id", type=int, required=True, help="this field is required"
+    # )
     parser.add_argument(
         "patient_id", type=int, required=True, help="this field is required"
     )
@@ -44,18 +44,15 @@ class Recipe(Resource):
                                    rotes=var['rotes'])
             drugs.append(drug)
 
-        recipe = RecipeModel(title=data.title, end_date=data.end_date, notes=data.notes, dept_id=data.dept_id,
+        recipe = RecipeModel(title=data.title, end_date=data.end_date, notes=data.notes,
                              drugs=drugs)
 
         recipe.save_to_db()
         current_user_id = get_jwt_identity()
         recipe = recipe.id
         patient = data.patient_id
-
-        user_patient_recipe = UserPatientRecipeAssos.find_by_patient_id(patient)
-        user_patient_recipe.current_user_id = current_user_id
-        user_patient_recipe.recipe_id = recipe
-        db.session.commit()
+        user_patient_recipe = UserPatientRecipeAssos(user_id=current_user_id, patient_id=patient, recipe_id=recipe)
+        user_patient_recipe.save_to_db()
 
         return {"message": "Recipe created successfully"}
 
@@ -90,12 +87,13 @@ class RecipeSpend(Resource):
             drug_id = var['drug_id']
             drug = DrugModel.find_by_id(drug_id)
 
-            discount = (var['dose'] * var['duration']) / (drug.unit)
+            discount = (var['dose'] * var['duration'] * var['unit']) / (drug.unit)
             information = {
                 "drug_name": drug.name,
                 "quantity": math.ceil(discount)
             }
             details.append(information)
+            db.session.commit()
 
             if (drug.quantity - discount) > 0:
                 current_user_id = get_jwt_identity()
@@ -107,12 +105,14 @@ class RecipeSpend(Resource):
 
 
             else:
+                stockDrugs = []
+                stockDrugs.append(drug)
                 return {
-                    "message": "Not enough quantity of this drug",
-                    "data": [],
+                           "message": "Not enough quantity of this drug",
+                           "data": [],
+                           "drug": [drug.json() for drug in stockDrugs]
 
-                }
-        db.session.commit()
+                       }, 404
         return {"message": "Recipe Spend successful",
                 "data": details
                 }

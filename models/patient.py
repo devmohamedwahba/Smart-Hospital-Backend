@@ -1,8 +1,7 @@
 from db import db
 import datetime
-from models.department import DepartmentModel
 from models.recipe import RecipeModel
-from models.recipe import RecipeModel
+from models.user import UserModel
 
 
 
@@ -12,18 +11,31 @@ class UserPatientRecipeAssos(db.Model):
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'))
     recipe_id = db.Column(db.Integer, db.ForeignKey('recipes.id'))
     user = db.relationship("UserModel")
-    patient = db.relationship("PatientModel", back_populates="users")
+    patient = db.relationship("PatientModel", back_populates="patient")
+    recipes = db.relationship("PatientModel", back_populates="users")
     recipe = db.relationship("RecipeModel")
 
     def json(self):
         return {
             "doctor_id": self.user_id,
+            "doctor_name": UserModel.find_by_id(self.user_id).json() if self.user_id else '',
             "recipe_id": self.recipe_id if self.recipe_id else ''
         }
 
     @classmethod
     def find_by_patient_id(cls, patient_id):
         return cls.query.filter_by(patient_id=patient_id).first()
+
+
+    @classmethod
+    def delete_user_recipe(cls, user_id):
+        return cls.query.filter_by(user_id=user_id).all()
+
+    def save_to_db(self):
+        db.session.add(self)
+        db.session.commit()
+
+
 
 
 class PatientModel(db.Model):
@@ -36,6 +48,8 @@ class PatientModel(db.Model):
     age = db.Column(db.Integer)
     diagnostic = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    patient = db.relationship("UserPatientRecipeAssos",
+                            back_populates="recipes")
 
     users = db.relationship("UserPatientRecipeAssos",
                             back_populates="patient")
@@ -64,7 +78,9 @@ class PatientModel(db.Model):
             "mobile": self.mobile,
             "age": self.age,
             "diagnostic": self.diagnostic,
-            "patient_details": [doctor.json() for doctor in PatientModel.find_by_id(self.id).users]
+            "patient_details": [doctor.json() for doctor in PatientModel.find_by_id(self.id).users],
+            "recipes": [recipe.json() for recipe in PatientModel.find_by_id(self.id).patient]
+
         }
 
     @classmethod
@@ -86,6 +102,7 @@ class PatientModel(db.Model):
     def save_to_db(self):
         db.session.add(self)
         db.session.commit()
+
 
     def delete_from_db(self):
         db.session.delete(self)

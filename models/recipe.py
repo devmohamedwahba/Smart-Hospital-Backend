@@ -6,12 +6,23 @@ class RecipeSpendAssos(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     recipe_id = db.Column(db.Integer, db.ForeignKey('recipes.id'))
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     user = db.relationship("UserModel")
     recipe = db.relationship("RecipeModel")
+    spend_recipe = db.relationship("RecipeModel", back_populates="recipe")
+
+
 
     @classmethod
     def delete_user_recipe(cls, user_id):
         return cls.query.filter_by(user_id=user_id).all()
+
+    def json(self):
+        return {
+            'recipe_id':self.recipe_id,
+            "user_id":self.user_id,
+            "created_at":str(self.created_at)
+        }
 
 
 class RecipeModel(db.Model):
@@ -21,10 +32,11 @@ class RecipeModel(db.Model):
     start_date = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     end_date = db.Column(db.DateTime)
     notes = db.Column(db.Text)
-    dept_id = db.Column(db.Integer, db.ForeignKey('departments.id'))
-    department = db.relationship('DepartmentModel')
+    # dept_id = db.Column(db.Integer, db.ForeignKey('departments.id'))
+    # department = db.relationship('DepartmentModel')
 
     drugs = db.relationship("RecipeDrugAssos", back_populates="recipe")
+    recipe = db.relationship("RecipeSpendAssos", back_populates="spend_recipe")
 
     def __repr__(self):
         return f"this is {self.title}"
@@ -42,8 +54,9 @@ class RecipeModel(db.Model):
             "start_date": str(self.start_date),
             "end_date": str(self.end_date),
             "notes": self.notes,
-            "dept_id": self.dept_id,
-            "drugs": [drug.json() for drug in RecipeModel.find_by_id(self.id).drugs]
+            # "dept_id": self.dept_id,
+            "drugs": [drug.json() for drug in RecipeModel.find_by_id(self.id).drugs],
+            "recipe_spend":[recipe.json() for recipe in RecipeModel.find_by_id(self.id).recipe]
         }
 
     @classmethod
